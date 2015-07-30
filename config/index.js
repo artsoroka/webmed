@@ -10,5 +10,11 @@ module.exports = {
             secure: false
         },
         secret: 'keyboard cat'
+    }, 
+    db:{
+        host     : 'localhost',
+        user     : 'webmedadmin',
+        password : 'webmedpassword',
+        database : 'webmed'
     }
 };
