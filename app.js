@@ -23,19 +23,22 @@ var authRequired = function(req,res,next){
 }; 
 
 var userSession = function(req,res,next){
-	req.session.user = req.session.user || {}; 
+	
+	if( req.session.user) return next(); 
+	
+	var user = req.session.auth || {}; 
+	
+	req.session.user = {
+		name: user.username || 'not logged in', 
+		favorites: user.favorites || [], 
+		bonus: user.bonus || 0
+	}; 
 	next(); 
 }; 
-
+ 
 app.get('/', userSession, function(req,res){
-	var user = req.session.user || {}; 
-	
 	res.render('mainpage', {
-		user: {
-			name: user.name || 'not logged in', 
-			favorites: user.favorites || [], 
-			bonus: user.bonus || 0
-		}
+		user: req.session.user || {} 
 	});  
 }); 
 
