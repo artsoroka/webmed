@@ -4,6 +4,8 @@ var bodyParser 	 = require('body-parser');
 var cookieParser = require('cookie-parser');  
 var app        	 = express(); 
 var config	     = require('./config'); 
+var db           = require('./lib/mysql'); 
+var auth 		 = require('./lib/auth')(db); 
 
 app.use(bodyParser.urlencoded({ extended: false })); 
 app.use(cookieParser()); 
@@ -40,6 +42,36 @@ app.get('/', userSession, function(req,res){
 	res.render('mainpage', {
 		user: req.session.user || {} 
 	});  
+}); 
+
+app.get('/login', function(req,res){
+	res.render('auth/login'); 
+}); 
+
+app.post('/login/:userType*?', function(req,res){
+	var userType = req.params.userType || 'user'; 
+	
+	if( ! req.body || ! req.body.login || ! req.body.password) 
+		return res.status(400).send('no valid login credentials provided '); 
+	
+	var userTypes = {
+		'user':         1, 
+		'doctor':       2, 
+		'organization': 3, 
+		'moderator':    4, 
+		'admin':        5
+	}; 
+	
+	db.query('SELECT * FROM users WHERE email = ? AND password = ? AND user_type_id = ?', [
+		req.body.login, 
+		req.body.password, 
+		userTypes[userType]
+	], function(err, record){
+		if( err ) return res.send(err); 
+		
+		res.send(JSON.stringify(record)); 
+	});  
+	
 }); 
 
 app.get('/login', function(req,res){
