@@ -16,26 +16,28 @@ app.set('view engine', 'ejs');
 app.set('views', __dirname + '/views'); 
 
 var authRequired = function(req,res,next){
-	var session = req.session || {}; 
-	var auth    = session.auth || null; 
-	req.session.user = req.session.user || {}; 
-	if( ! auth ) 
+	
+	if( ! req.session || ! req.session.auth ) 
 		return res.send('you are not logged in'); 
+	
 	next(); 
+	
 }; 
 
 var userSession = function(req,res,next){
 	
-	if( req.session.user) return next(); 
+	if( req.session.user ) return next(); 
 	
 	var user = req.session.auth || {}; 
-	
+	console.log('auth data: ', user); 
 	req.session.user = {
 		name: user.username || 'not logged in', 
 		favorites: user.favorites || [], 
 		bonus: user.bonus || 0
 	}; 
+	
 	next(); 
+
 }; 
  
 app.get('/', userSession, function(req,res){
@@ -54,23 +56,22 @@ app.post('/login/:userType*?', function(req,res){
 	if( ! req.body || ! req.body.login || ! req.body.password) 
 		return res.status(400).send('no valid login credentials provided '); 
 	
-	var userTypes = {
-		'user':         1, 
-		'doctor':       2, 
-		'organization': 3, 
-		'moderator':    4, 
-		'admin':        5
-	}; 
-	
-	db.query('SELECT * FROM users WHERE email = ? AND password = ? AND user_type_id = ?', [
-		req.body.login, 
-		req.body.password, 
-		userTypes[userType]
-	], function(err, record){
-		if( err ) return res.send(err); 
-		
-		res.send(JSON.stringify(record)); 
-	});  
+	auth.findUser({
+		login: 	  req.body.login, 
+		password: req.body.password, 
+		userType: userType
+	}, function(user){
+	 	if( ! user ) return res.status('401').send('credentials are incorrect'); 
+	 	
+	 	console.log(user); 
+	 	
+	 	req.session.auth = {
+	 		username: user.username, 
+	 		favorites: [],
+	 		bonus: 0
+	 	}; 
+	 	res.redirect('/mainpage'); 
+	}); 
 	
 }); 
 
@@ -81,6 +82,7 @@ app.get('/login', function(req,res){
 
 app.get('/logout', function(req,res){
 	req.session.auth = null;  
+	req.session.user = null; 
 	res.redirect('/'); 
 }); 
 
