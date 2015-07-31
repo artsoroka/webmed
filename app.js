@@ -29,7 +29,7 @@ var userSession = function(req,res,next){
 	if( req.session.user ) return next(); 
 	
 	var user = req.session.auth || {}; 
-	console.log('auth data: ', user); 
+	//console.log('auth data: ', user); 
 	req.session.user = {
 		name: user.username || 'not logged in', 
 		favorites: user.favorites || [], 
@@ -66,11 +66,19 @@ app.post('/login/:userType*?', function(req,res){
 	 	console.log(user); 
 	 	
 	 	req.session.auth = {
+	 		id: user.id, 
 	 		username: user.username, 
 	 		favorites: [],
 	 		bonus: 0
 	 	}; 
-	 	res.redirect('/mainpage'); 
+	 	
+	 	req.session.user = {
+	 		name: user.username || 'not logged in', 
+			favorites: user.favorites || [], 
+			bonus: user.bonus || 0
+	 	}; 
+	 	
+	 	res.redirect('/home'); 
 	}); 
 	
 }); 
@@ -89,6 +97,69 @@ app.get('/logout', function(req,res){
 app.get('/mainpage', authRequired, function(req,res){
 	res.send('mainpage'); 
 }); 
+
+app.get('/home', [authRequired, userSession], function(req,res){
+	res.render('home/main', {
+		user: req.session.user
+	});  
+});
+
+app.get('/home/profile', [authRequired, userSession], function(req,res){
+	db.query('SELECT * FROM user_profiles WHERE user_id = ? ', req.session.auth.id, function(err, profile){
+		if( err ){
+			console.log('db err: ', err); 
+			return res.status(500).send('db error'); 
+		}
+		
+		if( ! profile || ! profile.length ) 
+			return res.status(404).send('no profile found'); 
+		
+		res.render('home/profile', {
+			user: req.session.user, 
+			profile: profile[0]
+		});
+	});  
+}); 
+
+app.post('/home/profile', [authRequired, userSession], function(req,res){
+	db.query('UPDATE user_profiles SET first_name = ?, last_name = ?, age = ? WHERE user_id = ?', [
+		req.body.first_name, 
+		req.body.last_name, 
+		req.body.age,
+		req.session.auth.id
+		], function(err, newRedord, info){
+		if( err ) return res.statis(500).send(err); 
+		res.redirect('/home/profile'); 
+	}); 
+});
+
+app.get('/doctors', userSession, function(req,res){
+	db.query('SELECT * FROM users WHERE user_type_id = 2', function(err, doctors){
+		if( err ){
+			console.log('db err: ', err); 	
+			return res.status(500).send('db error'); 	
+		}
+		res.render('doctors', {
+			user: req.session.user, 
+			doctors: doctors
+		}); 
+	});
+}); 
+
+app.get('/doctors/:profileId', userSession, function(req,res){
+	db.query('SELECT * FROM users WHERE user_type_id = 2 AND id = ?', req.params.profileId, function(err, doctor){
+		if( err ){
+			console.log('db err: ', err); 	
+			return res.status(500).send('db error'); 	
+		}
+		
+		if( ! doctor || ! doctor.length )
+			return res.status('404').send('no doctor found with id ' + req.params.profileId); 
+		
+		res.json(doctor[0]); 
+	});
+}); 
+
 
 app.listen(config.app.port, function(){
     console.log('Webmed is started on a port %d', config.app.port); 
